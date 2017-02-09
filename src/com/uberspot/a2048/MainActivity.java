@@ -6,13 +6,16 @@ import android.app.Activity;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
@@ -24,9 +27,18 @@ import android.webkit.WebSettings.RenderPriority;
 import android.webkit.WebView;
 import android.widget.Toast;
 
+
+import com.google.android.gms.appindexing.Action;
+import com.google.android.gms.appindexing.AppIndex;
+import com.google.android.gms.appindexing.Thing;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.screenmeet.api.ScreenMeetAPI;
+import com.screenmeet.api.callback.SupportShareCallback;
+import com.screenmeet.sdk.support.SupportHelper;
+
 import de.cketti.library.changelog.ChangeLog;
 
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
 
     private static final String MAIN_ACTIVITY_TAG = "2048_MainActivity";
 
@@ -38,23 +50,28 @@ public class MainActivity extends Activity {
     private long mLastTouch;
     private static final long mTouchThreshold = 2000;
     private Toast pressBackToast;
+    /**
+     * ATTENTION: This was auto-generated to implement the App Indexing API.
+     * See https://g.co/AppIndexing/AndroidStudio for more information.
+     */
+    private GoogleApiClient client;
 
-    @SuppressLint({ "SetJavaScriptEnabled", "NewApi", "ShowToast" })
+    @SuppressLint({"SetJavaScriptEnabled", "NewApi", "ShowToast"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         // Don't show an action bar or title
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        requestWindowFeature(Window.FEATURE_ACTION_BAR);
 
         // If on android 3.0+ activate hardware acceleration
         if (Build.VERSION.SDK_INT >= 11) {
-            getWindow().setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-                    WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+            getWindow().setFlags(LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                    LayoutParams.FLAG_HARDWARE_ACCELERATED);
         }
 
         // Apply previous setting about showing status bar or not
-        applyFullScreen(isFullScreen());
+        // applyFullScreen(isFullScreen());
 
         // Check if screen rotation is locked in settings
         boolean isOrientationEnabled = false;
@@ -70,7 +87,7 @@ public class MainActivity extends Activity {
                 & Configuration.SCREENLAYOUT_SIZE_MASK;
         if (((screenLayout == Configuration.SCREENLAYOUT_SIZE_LARGE)
                 || (screenLayout == Configuration.SCREENLAYOUT_SIZE_XLARGE))
-                    && isOrientationEnabled) {
+                && isOrientationEnabled) {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR);
         }
 
@@ -122,6 +139,14 @@ public class MainActivity extends Activity {
 
         pressBackToast = Toast.makeText(getApplicationContext(), R.string.press_back_again_to_exit,
                 Toast.LENGTH_SHORT);
+
+        // this.addScreenMeetButtons();
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
+
+        SupportHelper.initInstance(ScreenMeetAPI.EnvironmentType.SANDBOX, "");
+        getApplication().registerActivityLifecycleCallbacks(SupportHelper.getInstance().lifecycleCallback());
     }
 
     @Override
@@ -132,12 +157,39 @@ public class MainActivity extends Activity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
-        // getMenuInflater().inflate(R.menu.main, menu);
+        getMenuInflater().inflate(R.menu.main, menu);
         return true;
     }
-    
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.start_sharing:
+
+                // @todo get the session code from the user via dialog
+                SupportHelper.getInstance().requestScreenShare(getString(R.string.session_code), new SupportShareCallback() {
+                    @Override
+                    public void failure(String s) {
+                        Toast.makeText(MainActivity.this, "Sharing failed.", Toast.LENGTH_LONG).show();
+                    }
+
+                    @Override
+                    public void success() {
+                        Toast.makeText(MainActivity.this, "Sharing started.", Toast.LENGTH_LONG).show();
+                    }
+                });
+                return true;
+            case R.id.stop_sharing:
+                SupportHelper.getInstance().endScreenShare();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
     /**
      * Saves the full screen setting in the SharedPreferences
+     *
      * @param isFullScreen
      */
 
@@ -155,14 +207,15 @@ public class MainActivity extends Activity {
 
     /**
      * Toggles the activitys fullscreen mode by setting the corresponding window flag
+     *
      * @param isFullScreen
      */
     private void applyFullScreen(boolean isFullScreen) {
         if (isFullScreen) {
             getWindow().clearFlags(LayoutParams.FLAG_FULLSCREEN);
         } else {
-            getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-                    WindowManager.LayoutParams.FLAG_FULLSCREEN);
+            getWindow().setFlags(LayoutParams.FLAG_FULLSCREEN,
+                    LayoutParams.FLAG_FULLSCREEN);
         }
     }
 
@@ -170,13 +223,13 @@ public class MainActivity extends Activity {
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
     }
-    
+
     /**
      * Prevents app from closing on pressing back button accidentally.
      * mBackPressThreshold specifies the maximum delay (ms) between two consecutive backpress to
      * quit the app.
      */
-    
+
     @Override
     public void onBackPressed() {
         long currentTime = System.currentTimeMillis();
@@ -187,5 +240,41 @@ public class MainActivity extends Activity {
             pressBackToast.cancel();
             super.onBackPressed();
         }
+    }
+
+    /**
+     * ATTENTION: This was auto-generated to implement the App Indexing API.
+     * See https://g.co/AppIndexing/AndroidStudio for more information.
+     */
+    public Action getIndexApiAction() {
+        Thing object = new Thing.Builder()
+                .setName("Main Page") // TODO: Define a title for the content shown.
+                // TODO: Make sure this auto-generated URL is correct.
+                .setUrl(Uri.parse("http://[ENTER-YOUR-URL-HERE]"))
+                .build();
+        return new Action.Builder(Action.TYPE_VIEW)
+                .setObject(object)
+                .setActionStatus(Action.STATUS_TYPE_COMPLETED)
+                .build();
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        client.connect();
+        AppIndex.AppIndexApi.start(client, getIndexApiAction());
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        AppIndex.AppIndexApi.end(client, getIndexApiAction());
+        client.disconnect();
     }
 }
